@@ -4,7 +4,10 @@ import java.io.Serializable;
 
 
 public abstract class BrokerMessage implements Serializable {
-    private Type type;
+	
+	private static final long serialVersionUID = -1623735524562512734L;
+	
+	private Type type;
     
     public BrokerMessage(Type type) {
         this.type = type;
