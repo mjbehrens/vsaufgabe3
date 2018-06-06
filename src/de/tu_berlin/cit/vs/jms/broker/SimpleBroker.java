@@ -2,7 +2,7 @@ package de.tu_berlin.cit.vs.jms.broker;
 
 import java.util.ArrayList;
 import java.util.List;
-import javax.jms.Connection;
+
 import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
@@ -13,12 +13,15 @@ import javax.jms.Queue;
 import javax.jms.Session;
 import javax.jms.Topic;
 
+import com.amazon.sqs.javamessaging.ProviderConfiguration;
+import com.amazon.sqs.javamessaging.SQSConnection;
+import com.amazon.sqs.javamessaging.SQSConnectionFactory;
+import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
+
 import de.tu_berlin.cit.vs.jms.common.BuyMessage;
 import de.tu_berlin.cit.vs.jms.common.ListMessage;
-import de.tu_berlin.cit.vs.jms.common.RequestListMessage;
 import de.tu_berlin.cit.vs.jms.common.SellMessage;
 import de.tu_berlin.cit.vs.jms.common.Stock;
-import org.apache.activemq.ActiveMQConnectionFactory;
 
 
 public class SimpleBroker {
@@ -64,9 +67,12 @@ public class SimpleBroker {
     
     public SimpleBroker(List<Stock> stockList) throws JMSException {
         /* TODO: initialize connection, sessions, etc. */
-        ActiveMQConnectionFactory conFactory = new ActiveMQConnectionFactory(
-        		"tcp://localhost:61616");
-        Connection con = conFactory.createConnection();
+        SQSConnectionFactory conFactory = new SQSConnectionFactory(
+        		new ProviderConfiguration(), 
+        		AmazonSQSClientBuilder.standard().withRegion("us-east-2"));
+        SQSConnection con = conFactory.createConnection(
+        		"AKIAJLU2JOEMAHIDPMGQ", 
+        		"Ty7AjkuZu//zrlTZDp36DeErHFH1J0H4LVK2ULMI");
         con.start();
         
         this.session = con.createSession(false, Session.AUTO_ACKNOWLEDGE);
