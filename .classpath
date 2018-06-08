@@ -2,9 +2,9 @@
 <classpath>
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
-	<classpathentry kind="lib" path="/Users/christianmischok/Downloads/amazon-sqs-java-messaging-lib-1.0.4.jar"/>
-	<classpathentry kind="lib" path="/Users/christianmischok/Downloads/apache-activemq-5.15.4/activemq-all-5.15.4.jar"/>
-	<classpathentry kind="lib" path="/Users/christianmischok/Downloads/aws-java-sdk-sqs-1.11.106.jar"/>
-	<classpathentry kind="lib" path="/Users/christianmischok/Downloads/aws-java-sdk-core-1.11.342.jar"/>
+	<classpathentry kind="lib" path="lib/activemq-all-5.15.4.jar"/>
+	<classpathentry kind="lib" path="lib/amazon-sqs-java-messaging-lib-1.0.4.jar"/>
+	<classpathentry kind="lib" path="lib/aws-java-sdk-core-1.11.342.jar"/>
+	<classpathentry kind="lib" path="lib/aws-java-sdk-sqs-1.11.106.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

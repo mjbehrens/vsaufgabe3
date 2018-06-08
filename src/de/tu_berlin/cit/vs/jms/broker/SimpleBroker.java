@@ -1,7 +1,9 @@
 package de.tu_berlin.cit.vs.jms.broker;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.jms.JMSException;
 import javax.jms.Message;
@@ -13,10 +15,12 @@ import javax.jms.Queue;
 import javax.jms.Session;
 import javax.jms.Topic;
 
+import com.amazon.sqs.javamessaging.AmazonSQSMessagingClientWrapper;
 import com.amazon.sqs.javamessaging.ProviderConfiguration;
 import com.amazon.sqs.javamessaging.SQSConnection;
 import com.amazon.sqs.javamessaging.SQSConnectionFactory;
 import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
+import com.amazonaws.services.sqs.model.CreateQueueRequest;
 
 import de.tu_berlin.cit.vs.jms.client.JmsBrokerClient;
 import de.tu_berlin.cit.vs.jms.common.BrokerMessage;
@@ -25,6 +29,7 @@ import de.tu_berlin.cit.vs.jms.common.ListMessage;
 import de.tu_berlin.cit.vs.jms.common.RegisterMessage;
 import de.tu_berlin.cit.vs.jms.common.SellMessage;
 import de.tu_berlin.cit.vs.jms.common.Stock;
+import de.tu_berlin.cit.vs.jms.common.UnregisterMessage;
 
 
 public class SimpleBroker {
@@ -71,6 +76,18 @@ public class SimpleBroker {
 							clients.add(new JmsBrokerClient(nextId++, regMsg.getClientName(), in, out));
 							break;
 						case SYSTEM_UNREGISTER: 
+							UnregisterMessage unregMsg = (UnregisterMessage)((ObjectMessage) msg).getObject();
+							if (clients.stream().
+									filter( c -> c.getClientName().equals(unregMsg.getClientName()) ).count() == 0 ) {
+								System.out.println("Client is not registered. Please register in prior.");
+								break;
+							}
+							
+							for (JmsBrokerClient client: clients) {
+								if (client.getClientName().equals(unregMsg.getClientName())) {
+									clients.remove(client);
+								}
+							}
 							break;
 						case SYSTEM_ERROR:
 							System.out.println("Error message was detected");
@@ -113,6 +130,17 @@ public class SimpleBroker {
         
         this.stocks = stockList;
         session.setMessageListener(listener);
+        // registration Queue
+     // Get the wrapped client
+        AmazonSQSMessagingClientWrapper client = con.getWrappedAmazonSQSClient();
+
+        // Create an Amazon SQS FIFO queue named MyQueue.fifo, if it doesn't already exist
+        if (!client.queueExists("RegQueue.fifo")) {
+            Map<String, String> attributes = new HashMap<String, String>();
+            attributes.put("FifoQueue", "true");
+            attributes.put("ContentBasedDeduplication", "true");
+            client.createQueue(new CreateQueueRequest().withQueueName("RegQueue.fifo").withAttributes(attributes));
+        }
     }
     
     public void stop() throws JMSException {

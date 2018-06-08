@@ -3,30 +3,19 @@ package de.tu_berlin.cit.vs.jms.client;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.jms.Connection;
 import javax.jms.JMSException;
-import javax.jms.Message;
 import javax.jms.MessageConsumer;
-import javax.jms.MessageListener;
 import javax.jms.MessageProducer;
 import javax.jms.ObjectMessage;
 import javax.jms.Queue;
 import javax.jms.Session;
 import de.tu_berlin.cit.vs.jms.common.BuyMessage;
-import de.tu_berlin.cit.vs.jms.common.ListMessage;
 import de.tu_berlin.cit.vs.jms.common.RegisterMessage;
 import de.tu_berlin.cit.vs.jms.common.RequestListMessage;
 import de.tu_berlin.cit.vs.jms.common.SellMessage;
-import de.tu_berlin.cit.vs.jms.common.Stock;
 import de.tu_berlin.cit.vs.jms.common.UnregisterMessage;
-import org.apache.activemq.ActiveMQConnectionFactory;
-
 import com.amazon.sqs.javamessaging.ProviderConfiguration;
 import com.amazon.sqs.javamessaging.SQSConnection;
 import com.amazon.sqs.javamessaging.SQSConnectionFactory;
@@ -62,10 +51,15 @@ public class JmsBrokerClient {
         SQSConnection connection = conFactory.createConnection();
         connection.start();
         
-    	this.session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-        
+        this.session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+        // Connect to registreation queue
+        Queue queue = session.createQueue("RegQueue");
+        this.producer = session.createProducer(out);
+
         this.consumer = session.createConsumer(in);
         this.producer = session.createProducer(out);
+        
+        register();
     }
 	
 	public Queue getIn() {
@@ -79,6 +73,18 @@ public class JmsBrokerClient {
 	public String getClientName() {
 		return clientName;
 	}
+		
+	public void register() throws JMSException {
+       
+        //message.setStringProperty("JMSXGroupID", "Default");
+        ObjectMessage RegMsg = session.createObjectMessage(new RegisterMessage(this.clientName));
+        this.producer.send(RegMsg);
+	}
+	
+	public void unregister() throws JMSException {
+		ObjectMessage unregMsg = session.createObjectMessage(new UnregisterMessage(this.clientName));
+    	this.producer.send(unregMsg);
+	}
     
     public int getId() {
 		return id;
@@ -91,36 +97,27 @@ public class JmsBrokerClient {
 	public void requestList() throws JMSException {
         //TODO
     	ObjectMessage reqListMsg = session.createObjectMessage(new RequestListMessage());
-    	reqListMsg.setStringProperty("class", "RequestListMessage");
     	this.producer.send(reqListMsg);
     }
     
     public void buy(String stockName, int amount) throws JMSException {
         //TODO
     	ObjectMessage buyMsg = session.createObjectMessage(new BuyMessage(stockName, amount));
-    	buyMsg.setStringProperty("class", "BuyMessage");
     	this.producer.send(buyMsg);
     }
     
     public void sell(String stockName, int amount) throws JMSException {
         //TODO
     	ObjectMessage sellMsg = session.createObjectMessage(new SellMessage(stockName, amount));
-    	sellMsg.setStringProperty("class", "SellMessage");
     	this.producer.send(sellMsg);
     }
     
     public void watch(String stockName) throws JMSException {
         //TODO
-    	ObjectMessage regMsg = session.createObjectMessage(new RegisterMessage(stockName));
-    	regMsg.setStringProperty("class", "RegisterMessage");
-    	this.producer.send(regMsg);
     }
     
     public void unwatch(String stockName) throws JMSException {
         //TODO
-    	ObjectMessage unregMsg = session.createObjectMessage(new UnregisterMessage(stockName));
-    	unregMsg.setStringProperty("class", "UnregisterMessage");
-    	this.producer.send(unregMsg);
     }
     
     public void quit() throws JMSException {
