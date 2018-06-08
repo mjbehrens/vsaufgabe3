@@ -54,6 +54,8 @@ public class SimpleBroker {
 						ObjectMessage listMsg = session.createObjectMessage(new ListMessage(stocks));
 						producer.send(listMsg);
 						break;
+					case "RegisterMessage"
+						RegisterMessage RegMsg = (RegisterMessage)((ObjectMesssage)msg).getObject();
 						
 					}
 				} catch (JMSException e) {
@@ -88,6 +90,18 @@ public class SimpleBroker {
         }
         
         this.stocks = stockList;
+        // registration Queue
+     // Get the wrapped client
+        AmazonSQSMessagingClientWrapper client = connection.getWrappedAmazonSQSClient();
+
+        // Create an Amazon SQS FIFO queue named MyQueue.fifo, if it doesn't already exist
+        if (!client.queueExists("RegQueue.fifo")) {
+            Map<String, String> attributes = new HashMap<String, String>();
+            attributes.put("FifoQueue", "true");
+            attributes.put("ContentBasedDeduplication", "true");
+            client.createQueue(new CreateQueueRequest().withQueueName("RegQueue.fifo").withAttributes(attributes));
+        }
+        
     }
     
     public void stop() throws JMSException {

@@ -34,6 +34,7 @@ public class JmsBrokerClient {
 	private MessageConsumer consumer;
 	private MessageProducer producer;
 	private Session session;
+	private MessageProducer RegProducer;
 	
 	public JmsBrokerClient(String clientName) throws JMSException {
         this.clientName = clientName;
@@ -51,9 +52,21 @@ public class JmsBrokerClient {
         
         this.consumer = session.createConsumer(inQueue);
         this.producer = session.createProducer(outQueue);
+        // Connect to registreation queue
+        Queue queue = session.createQueue("RegQueue");
+        this.RegProducer = session.createProducer(queue);
+
+        
         
         
     }
+	public void register() throws JMSExceptio {
+       
+        //message.setStringProperty("JMSXGroupID", "Default");
+        ObjectMessage RegMsg = session.createObjectMessage(new RegisterMessage(clientName));
+        this.RegProducer.send(RegMsg);
+        
+	}
     
     public void requestList() throws JMSException {
         //TODO
