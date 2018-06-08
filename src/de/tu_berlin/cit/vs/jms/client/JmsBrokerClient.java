@@ -27,61 +27,99 @@ import de.tu_berlin.cit.vs.jms.common.Stock;
 import de.tu_berlin.cit.vs.jms.common.UnregisterMessage;
 import org.apache.activemq.ActiveMQConnectionFactory;
 
+import com.amazon.sqs.javamessaging.ProviderConfiguration;
+import com.amazon.sqs.javamessaging.SQSConnection;
+import com.amazon.sqs.javamessaging.SQSConnectionFactory;
+import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
+
 
 public class JmsBrokerClient {
     
+	private Queue in;
+	private Queue out;
 	private String clientName;
-	private MessageConsumer consumer;
-	private MessageProducer producer;
-	private Session session;
+	private int id;
+
+	MessageConsumer consumer;
+	MessageProducer producer;
+	Session session;
+	
+	public JmsBrokerClient(int id, String clientName, Queue in, Queue out) {
+		this.id = id;
+		this.clientName = clientName;
+		this.in = in;
+		this.out = out;
+	}
 	
 	public JmsBrokerClient(String clientName) throws JMSException {
         this.clientName = clientName;
         
         /* TODO: initialize connection, sessions, consumer, producer, etc. */
-        ActiveMQConnectionFactory conFactory = new ActiveMQConnectionFactory(
-        		"tcp://localhost:61616");
-        Connection connection = conFactory.createConnection();
+        SQSConnectionFactory conFactory = new SQSConnectionFactory(
+        		new ProviderConfiguration(), 
+        		AmazonSQSClientBuilder.standard().withRegion("us-east-2")
+        );
+        SQSConnection connection = conFactory.createConnection();
         connection.start();
         
-        this.session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-        // create an incoming and outcoming queue
-        Queue inQueue = session.createQueue("inqueue");
-        Queue outQueue = session.createQueue("outqueue");
+    	this.session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
         
-        this.consumer = session.createConsumer(inQueue);
-        this.producer = session.createProducer(outQueue);
-        
-        
+        this.consumer = session.createConsumer(in);
+        this.producer = session.createProducer(out);
     }
+	
+	public Queue getIn() {
+		return in;
+	}
+
+	public Queue getOut() {
+		return out;
+	}
+
+	public String getClientName() {
+		return clientName;
+	}
     
-    public void requestList() throws JMSException {
+    public int getId() {
+		return id;
+	}
+
+	public void setId(int id) {
+		this.id = id;
+	}
+
+	public void requestList() throws JMSException {
         //TODO
     	ObjectMessage reqListMsg = session.createObjectMessage(new RequestListMessage());
+    	reqListMsg.setStringProperty("class", "RequestListMessage");
     	this.producer.send(reqListMsg);
     }
     
     public void buy(String stockName, int amount) throws JMSException {
         //TODO
     	ObjectMessage buyMsg = session.createObjectMessage(new BuyMessage(stockName, amount));
+    	buyMsg.setStringProperty("class", "BuyMessage");
     	this.producer.send(buyMsg);
     }
     
     public void sell(String stockName, int amount) throws JMSException {
         //TODO
     	ObjectMessage sellMsg = session.createObjectMessage(new SellMessage(stockName, amount));
+    	sellMsg.setStringProperty("class", "SellMessage");
     	this.producer.send(sellMsg);
     }
     
     public void watch(String stockName) throws JMSException {
         //TODO
     	ObjectMessage regMsg = session.createObjectMessage(new RegisterMessage(stockName));
+    	regMsg.setStringProperty("class", "RegisterMessage");
     	this.producer.send(regMsg);
     }
     
     public void unwatch(String stockName) throws JMSException {
         //TODO
     	ObjectMessage unregMsg = session.createObjectMessage(new UnregisterMessage(stockName));
+    	unregMsg.setStringProperty("class", "UnregisterMessage");
     	this.producer.send(unregMsg);
     }
     

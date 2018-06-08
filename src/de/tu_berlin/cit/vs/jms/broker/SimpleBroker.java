@@ -18,46 +18,70 @@ import com.amazon.sqs.javamessaging.SQSConnection;
 import com.amazon.sqs.javamessaging.SQSConnectionFactory;
 import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
 
+import de.tu_berlin.cit.vs.jms.client.JmsBrokerClient;
+import de.tu_berlin.cit.vs.jms.common.BrokerMessage;
 import de.tu_berlin.cit.vs.jms.common.BuyMessage;
 import de.tu_berlin.cit.vs.jms.common.ListMessage;
+import de.tu_berlin.cit.vs.jms.common.RegisterMessage;
 import de.tu_berlin.cit.vs.jms.common.SellMessage;
 import de.tu_berlin.cit.vs.jms.common.Stock;
 
 
 public class SimpleBroker {
     /* TODO: variables as needed */
+	static int nextId = 0;
+	
 	List<Stock> stocks = new ArrayList<>();
+	List<JmsBrokerClient> clients;
+	
+	
 	MessageProducer producer;
 	MessageConsumer consumer;
 	Session session;
-    
+	
     private final MessageListener listener = new MessageListener() {
         @Override
         public void onMessage(Message msg) {
             if(msg instanceof ObjectMessage) {
                 //TODO
+            	
             	try {
-					switch(((ObjectMessage) msg).getObject().toString()) {
-					case "BuyMessage":
-						System.out.println(((ObjectMessage) msg).getObject().toString());
-						BuyMessage buyMsg = (BuyMessage)((ObjectMessage) msg).getObject();
-						int index = buy(buyMsg.getStockName(), buyMsg.getAmount());
-						Stock targetStock = stocks.get(index);
-						targetStock.setAvailableCount(targetStock.getAvailableCount() - 1);
-				    	targetStock.setStockCount(targetStock.getStockCount() +  1);
-						break;
-					case "SellMessage":
-						SellMessage sellMsg = (SellMessage)((ObjectMessage) msg).getObject();
-						sell(sellMsg.getStockName(), sellMsg.getAmount());
-						break;
-					case "RequestListMessage":
-						ObjectMessage listMsg = session.createObjectMessage(new ListMessage(stocks));
-						producer.send(listMsg);
-						break;
-						
+            		BrokerMessage brokMsg = (BrokerMessage)((ObjectMessage) msg).getObject();
+					
+            		switch(brokMsg.getType()) {
+						case STOCK_BUY:
+							BuyMessage buyMsg = (BuyMessage)((ObjectMessage) msg).getObject();
+							int stockIndex = buy(buyMsg.getStockName(), buyMsg.getAmount());
+							Stock targetStock = stocks.get(stockIndex);
+							targetStock.setAvailableCount(targetStock.getAvailableCount() - 1);
+					    	targetStock.setStockCount(targetStock.getStockCount() +  1);
+							break;
+						case STOCK_SELL:
+							SellMessage sellMsg = (SellMessage)((ObjectMessage) msg).getObject();
+							sell(sellMsg.getStockName(), sellMsg.getAmount());
+							break;
+						case STOCK_LIST:
+							ObjectMessage listMsg = session.createObjectMessage(new ListMessage(stocks));
+							producer.send(listMsg);
+							break;
+						case SYSTEM_REGISTER:
+							RegisterMessage regMsg = (RegisterMessage)((ObjectMessage) msg).getObject();
+							Queue in = session.createQueue("incoming");
+							Queue out = session.createQueue("outcoming");
+							clients.add(new JmsBrokerClient(nextId++, regMsg.getClientName(), in, out));
+							break;
+						case SYSTEM_UNREGISTER: 
+							break;
+						case SYSTEM_ERROR:
+							System.out.println("Error message was detected");
+							break;
+						default:
+							System.out.println("Not a supported command");
+							break;
 					}
+					
 				} catch (JMSException e) {
-					// TODO Auto-generated catch block
+					System.out.println("error message: " + e.getMessage());
 					e.printStackTrace();
 				}
             	
@@ -71,8 +95,8 @@ public class SimpleBroker {
         		new ProviderConfiguration(), 
         		AmazonSQSClientBuilder.standard().withRegion("us-east-2"));
         SQSConnection con = conFactory.createConnection(
-        		"AKIAJLU2JOEMAHIDPMGQ", 
-        		"Ty7AjkuZu//zrlTZDp36DeErHFH1J0H4LVK2ULMI");
+        		"AKIAIBTHVB24KIISRKRQ", 
+        		"g3/ks/Y8SwjnztgAVDPy0PmXiXPUk/fvEeOwnCIS");
         con.start();
         
         this.session = con.createSession(false, Session.AUTO_ACKNOWLEDGE);
@@ -88,6 +112,7 @@ public class SimpleBroker {
         }
         
         this.stocks = stockList;
+        session.setMessageListener(listener);
     }
     
     public void stop() throws JMSException {
@@ -98,13 +123,6 @@ public class SimpleBroker {
     
     public synchronized int buy(String stockName, int amount) throws JMSException {
         //TODO
-    	/*
-    	Stock targetStock = stocks.stream().filter(s -> s.getName() == stockName)
-    			.findFirst().get();
-    	targetStock.setAvailableCount(targetStock.getAvailableCount() - 1);
-    	targetStock.setStockCount(targetStock.getStockCount() +  1);
-    	this.stocks.stream().filter(s -> s.getName().equals(stockName)).findFirst()*/
-    	
     	for (int i = 0; i < this.stocks.size(); i++) {
     		if (stocks.get(i).getName().equals(stockName)) {
     			return i;
@@ -115,6 +133,7 @@ public class SimpleBroker {
     
     public synchronized int sell(String stockName, int amount) throws JMSException {
         //TODO
+    	
         return -1;
     }
     
