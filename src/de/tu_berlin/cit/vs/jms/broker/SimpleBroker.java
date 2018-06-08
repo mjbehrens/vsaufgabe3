@@ -21,6 +21,7 @@ import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
 import de.tu_berlin.cit.vs.jms.common.BuyMessage;
 import de.tu_berlin.cit.vs.jms.common.ListMessage;
 import de.tu_berlin.cit.vs.jms.common.SellMessage;
+import de.tu_berlin.cit.vs.jms.common.RegisterMessage;
 import de.tu_berlin.cit.vs.jms.common.Stock;
 
 
@@ -54,8 +55,10 @@ public class SimpleBroker {
 						ObjectMessage listMsg = session.createObjectMessage(new ListMessage(stocks));
 						producer.send(listMsg);
 						break;
-					case "RegisterMessage"
-						RegisterMessage RegMsg = (RegisterMessage)((ObjectMesssage)msg).getObject();
+					case "RegisterMessage":
+						RegisterMessage RegMsg = (RegisterMessage)((ObjectMessage) msg).getObject();
+						
+						break;
 						
 					}
 				} catch (JMSException e) {

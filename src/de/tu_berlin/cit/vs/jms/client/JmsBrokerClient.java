@@ -60,7 +60,7 @@ public class JmsBrokerClient {
         
         
     }
-	public void register() throws JMSExceptio {
+	public void register() throws JMSException {
        
         //message.setStringProperty("JMSXGroupID", "Default");
         ObjectMessage RegMsg = session.createObjectMessage(new RegisterMessage(clientName));
