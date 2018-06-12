@@ -2,7 +2,9 @@ package de.tu_berlin.cit.vs.jms.common;
 
 
 public class RegisterMessage extends BrokerMessage {
-    private String clientName;
+
+	private static final long serialVersionUID = -5491978849786236925L;
+	private String clientName;
     
     public RegisterMessage(String clientName) {
         super(Type.SYSTEM_REGISTER);

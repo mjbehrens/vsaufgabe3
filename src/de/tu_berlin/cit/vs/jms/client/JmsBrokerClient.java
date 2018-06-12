@@ -11,6 +11,8 @@ import javax.jms.MessageProducer;
 import javax.jms.ObjectMessage;
 import javax.jms.Queue;
 import javax.jms.Session;
+import javax.jms.TextMessage;
+
 import de.tu_berlin.cit.vs.jms.common.BuyMessage;
 import de.tu_berlin.cit.vs.jms.common.RegisterMessage;
 import de.tu_berlin.cit.vs.jms.common.RequestListMessage;
@@ -48,18 +50,16 @@ public class JmsBrokerClient {
         		new ProviderConfiguration(), 
         		AmazonSQSClientBuilder.standard().withRegion("us-east-2")
         );
-        SQSConnection connection = conFactory.createConnection();
+        SQSConnection connection = conFactory.createConnection(
+        		"AKIAIBTHVB24KIISRKRQ", 
+        		"g3/ks/Y8SwjnztgAVDPy0PmXiXPUk/fvEeOwnCIS"
+        );
         connection.start();
         
         this.session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-        // Connect to registreation queue
-        Queue queue = session.createQueue("RegQueue");
-        this.producer = session.createProducer(out);
-
-        this.consumer = session.createConsumer(in);
-        this.producer = session.createProducer(out);
-        
-        register();
+        // Connect to registration queue
+        Queue regQueue = session.createQueue("RegistrationQueue");
+        this.producer = session.createProducer(regQueue);
     }
 	
 	public Queue getIn() {
@@ -73,25 +73,24 @@ public class JmsBrokerClient {
 	public String getClientName() {
 		return clientName;
 	}
-		
-	public void register() throws JMSException {
-       
-        //message.setStringProperty("JMSXGroupID", "Default");
-        ObjectMessage RegMsg = session.createObjectMessage(new RegisterMessage(this.clientName));
-        this.producer.send(RegMsg);
-	}
 	
-	public void unregister() throws JMSException {
-		ObjectMessage unregMsg = session.createObjectMessage(new UnregisterMessage(this.clientName));
-    	this.producer.send(unregMsg);
-	}
-    
-    public int getId() {
+	public int getId() {
 		return id;
 	}
 
 	public void setId(int id) {
 		this.id = id;
+	}
+		
+	public void register() throws JMSException {
+        ObjectMessage regMsg = this.session.createObjectMessage(new RegisterMessage(this.clientName));
+        this.producer.send(regMsg);
+        System.out.println("Register msg was sent to the broker");
+	}
+	
+	public void unregister() throws JMSException {
+		ObjectMessage unregMsg = session.createObjectMessage(new UnregisterMessage(this.clientName));
+    	this.producer.send(unregMsg);
 	}
 
 	public void requestList() throws JMSException {
@@ -180,6 +179,19 @@ public class JmsBrokerClient {
                                 System.out.println("Correct usage: watch [stock]");
                             }
                             break;
+                        case "register":
+                        	if(task.length == 1) {
+                        		client.register();
+                        	} else {
+                        		System.out.println("Correct usage: register");
+                        	}
+                        	break;
+                        case "unregister":
+                        	if(task.length == 1) {
+                        		client.unregister();
+                        	} else {
+                        		System.out.println("Correct usage: unregister");
+                        	}
                         default:
                             System.out.println("Unknown command. Try one of:");
                             System.out.println("quit, list, buy, sell, watch, unwatch");

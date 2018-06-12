@@ -1,10 +1,7 @@
 package de.tu_berlin.cit.vs.jms.broker;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-
 import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
@@ -13,6 +10,7 @@ import javax.jms.MessageProducer;
 import javax.jms.ObjectMessage;
 import javax.jms.Queue;
 import javax.jms.Session;
+import javax.jms.TextMessage;
 import javax.jms.Topic;
 
 import com.amazon.sqs.javamessaging.AmazonSQSMessagingClientWrapper;
@@ -20,8 +18,6 @@ import com.amazon.sqs.javamessaging.ProviderConfiguration;
 import com.amazon.sqs.javamessaging.SQSConnection;
 import com.amazon.sqs.javamessaging.SQSConnectionFactory;
 import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
-import com.amazonaws.services.sqs.model.CreateQueueRequest;
-
 import de.tu_berlin.cit.vs.jms.client.JmsBrokerClient;
 import de.tu_berlin.cit.vs.jms.common.BrokerMessage;
 import de.tu_berlin.cit.vs.jms.common.BuyMessage;
@@ -43,13 +39,13 @@ public class SimpleBroker {
 	MessageProducer producer;
 	MessageConsumer consumer;
 	Session session;
+	SQSConnection con;
 	
     private final MessageListener listener = new MessageListener() {
         @Override
         public void onMessage(Message msg) {
             if(msg instanceof ObjectMessage) {
                 //TODO
-            	
             	try {
             		BrokerMessage brokMsg = (BrokerMessage)((ObjectMessage) msg).getObject();
 					
@@ -60,7 +56,8 @@ public class SimpleBroker {
 							Stock targetStock = stocks.get(stockIndex);
 							targetStock.setAvailableCount(targetStock.getAvailableCount() - 1);
 					    	targetStock.setStockCount(targetStock.getStockCount() +  1);
-							break;
+							stocks.add(stockIndex, targetStock);
+					    	break;
 						case STOCK_SELL:
 							SellMessage sellMsg = (SellMessage)((ObjectMessage) msg).getObject();
 							sell(sellMsg.getStockName(), sellMsg.getAmount());
@@ -71,8 +68,8 @@ public class SimpleBroker {
 							break;
 						case SYSTEM_REGISTER:
 							RegisterMessage regMsg = (RegisterMessage)((ObjectMessage) msg).getObject();
-							Queue in = session.createQueue("incoming");
-							Queue out = session.createQueue("outcoming");
+							Queue in = session.createQueue("newQueue");
+							Queue out = session.createQueue("newQueue");
 							clients.add(new JmsBrokerClient(nextId++, regMsg.getClientName(), in, out));
 							break;
 						case SYSTEM_UNREGISTER: 
@@ -108,44 +105,46 @@ public class SimpleBroker {
     
     public SimpleBroker(List<Stock> stockList) throws JMSException {
         /* TODO: initialize connection, sessions, etc. */
-        SQSConnectionFactory conFactory = new SQSConnectionFactory(
+    	System.out.println("SimpleBroker");
+    	SQSConnectionFactory conFactory = new SQSConnectionFactory(
         		new ProviderConfiguration(), 
-        		AmazonSQSClientBuilder.standard().withRegion("us-east-2"));
-        SQSConnection con = conFactory.createConnection(
+        		AmazonSQSClientBuilder.standard().withRegion("us-east-2")
+        );
+    	
+    	
+        this.con = conFactory.createConnection(
         		"AKIAIBTHVB24KIISRKRQ", 
-        		"g3/ks/Y8SwjnztgAVDPy0PmXiXPUk/fvEeOwnCIS");
-        con.start();
+        		"g3/ks/Y8SwjnztgAVDPy0PmXiXPUk/fvEeOwnCIS"
+        );
+        
+        AmazonSQSMessagingClientWrapper client = con.getWrappedAmazonSQSClient();
+        
+        if (!client.queueExists("RegistrationQueue")) {
+        	client.createQueue("RegistrationQueue");
+        }
         
         this.session = con.createSession(false, Session.AUTO_ACKNOWLEDGE);
-        Queue myqueue = session.createQueue("myQueue");
-        
-        this.consumer = session.createConsumer(myqueue);
-        this.producer = session.createProducer(myqueue);
+        // queue for polling registration requests
+        Queue regQueue = session.createQueue("RegistrationQueue");
+        // queue for sending results of the client commands
+        Queue targetQueue = session.createQueue("newQueue");
+        this.consumer = session.createConsumer(regQueue);
+        this.producer = session.createProducer(targetQueue);
     	
-    	
-        for(Stock stock : stockList) {
-            /* TODO: prepare stocks as topics */
-        	Topic topic = session.createTopic(stock.getName());
-        }
+        consumer.setMessageListener(this.listener);
+        con.start();
+//        for(Stock stock : stockList) {
+//            /* TODO: prepare stocks as topics */
+//        	Topic topic = session.createTopic(stock.getName());
+//        }
         
         this.stocks = stockList;
-        session.setMessageListener(listener);
-        // registration Queue
-     // Get the wrapped client
-        AmazonSQSMessagingClientWrapper client = con.getWrappedAmazonSQSClient();
-
-        // Create an Amazon SQS FIFO queue named MyQueue.fifo, if it doesn't already exist
-        if (!client.queueExists("RegQueue.fifo")) {
-            Map<String, String> attributes = new HashMap<String, String>();
-            attributes.put("FifoQueue", "true");
-            attributes.put("ContentBasedDeduplication", "true");
-            client.createQueue(new CreateQueueRequest().withQueueName("RegQueue.fifo").withAttributes(attributes));
-        }
     }
     
     public void stop() throws JMSException {
         //TODO
     	System.out.println("request from broker server to stop the simple broker");
+    	this.con.close();
     	System.exit(2);
     }
     

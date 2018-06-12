@@ -10,7 +10,9 @@ import de.tu_berlin.cit.vs.jms.common.Stock;
 
 public class JmsBrokerServer {
     public static void main(String[] args) {
-        try {
+        
+    	System.out.println("JMS Broker server is running");
+    	try {
             List<Stock> stocks = new ArrayList<>();
             stocks.add(new Stock("ALDI", 200, 2.0));
             stocks.add(new Stock("LIDL", 300, 1.0));
