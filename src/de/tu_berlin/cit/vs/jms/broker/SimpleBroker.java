@@ -59,7 +59,7 @@ public class SimpleBroker {
 					    	break;
 						case STOCK_SELL:
 							SellMessage sellMsg = (SellMessage)((ObjectMessage) msg).getObject();
-							sell(sellMsg.getStockName(), sellMsg.getAmount());
+							sell(sellMsg.getStockName(), sellMsg.getAmount(),msg.getStringProperty("name"));
 							break;
 						case STOCK_LIST:
 							ObjectMessage listMsg = session.createObjectMessage(new ListMessage(stocks));
@@ -188,10 +188,29 @@ public class SimpleBroker {
 		}
     }
     
-    public synchronized int sell(String stockName, int amount) throws JMSException {
+    public synchronized boolean sell(String stockName, int amount, String clientName) throws JMSException {
         //TODO
-    	
-        return -1;
+        for (int i = 0; i < this.stocks.size(); i++)
+        {
+            if (stocks.get(i).getName().equals(stockName)) 
+            {
+                if(stocks.get(i).getAvailableCount()+amount>stocks.get(i).getStockCount())
+                {
+                    System.out.println("sell impossible, total amount of stocks exceeded the initial stock count");
+                    sendErrorMessage(clientName, "sell impossible, total amount of stocks exceeded the initial stock count");
+                    return false;
+                }
+                else
+                {
+                    stocks.get(i).setAvailableCount(stocks.get(i).getAvailableCount()+amount);
+                    return true;
+                    
+                }   
+            }    
+        }
+        // if it doesn't find the stock in the stocks list
+        sendErrorMessage(clientName, "requested stock does not exist");
+        return false;
     }
     
     public synchronized List<Stock> getStockList() {
