@@ -39,7 +39,13 @@ public class JmsBrokerClient {
 	MessageConsumer consumer;
 	MessageProducer producer;
 	Session session;
+	List<Stock> Stocks; 
 	
+	public List<Stock> getStocks() {
+		return Stocks;
+	}
+	
+
 	private final MessageListener listener = new MessageListener() {
 
 		@Override
