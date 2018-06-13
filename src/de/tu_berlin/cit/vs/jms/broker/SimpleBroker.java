@@ -12,7 +12,6 @@ import javax.jms.ObjectMessage;
 import javax.jms.Queue;
 import javax.jms.Session;
 import javax.jms.TextMessage;
-import javax.jms.Topic;
 
 import com.amazon.sqs.javamessaging.AmazonSQSMessagingClientWrapper;
 import com.amazon.sqs.javamessaging.ProviderConfiguration;
@@ -56,11 +55,7 @@ public class SimpleBroker {
             		switch(brokMsg.getType()) {
 						case STOCK_BUY:
 							BuyMessage buyMsg = (BuyMessage)((ObjectMessage) msg).getObject();
-							int stockIndex = buy(buyMsg.getStockName(), buyMsg.getAmount());
-							Stock targetStock = stocks.get(stockIndex);
-							targetStock.setAvailableCount(targetStock.getAvailableCount() - 1);
-					    	targetStock.setStockCount(targetStock.getStockCount() +  1);
-							stocks.add(stockIndex, targetStock);
+							buy(buyMsg.getStockName(), buyMsg.getAmount(), msg.getStringProperty("name"));
 					    	break;
 						case STOCK_SELL:
 							SellMessage sellMsg = (SellMessage)((ObjectMessage) msg).getObject();
@@ -74,7 +69,7 @@ public class SimpleBroker {
 						case SYSTEM_REGISTER:
 							RegisterMessage regMsg = (RegisterMessage)((ObjectMessage) msg).getObject();
 							Queue in = session.createQueue("newQueue");
-							Queue out = session.createQueue("newQueue");
+							Queue out = session.createQueue("RegistrationQueue");
 							clients.add(new JmsBrokerClient(nextId++, regMsg.getClientName(), in, out));
 							break;
 						case SYSTEM_UNREGISTER: 
@@ -133,10 +128,7 @@ public class SimpleBroker {
         this.session = con.createSession(false, Session.AUTO_ACKNOWLEDGE);
         // queue for polling registration requests
         Queue regQueue = session.createQueue("RegistrationQueue");
-        // queue for sending results of the client commands
-        Queue targetQueue = session.createQueue("newQueue");
         this.consumer = session.createConsumer(regQueue);
-        this.producer = session.createProducer(targetQueue);
     	
         consumer.setMessageListener(this.listener);
         con.start();
@@ -155,14 +147,45 @@ public class SimpleBroker {
     	System.exit(2);
     }
     
-    public synchronized int buy(String stockName, int amount) throws JMSException {
-        //TODO
-    	for (int i = 0; i < this.stocks.size(); i++) {
-    		if (stocks.get(i).getName().equals(stockName)) {
-    			return i;
-    		}
+    public synchronized boolean buy(String stockName, int amount, String clientName) throws JMSException {
+    	Stock targetStock = getStockByName(stockName);
+    	if (targetStock != null) {
+    		if (targetStock.getAvailableCount() > amount) {
+        		targetStock.setAvailableCount(targetStock.getAvailableCount() - amount);
+        		
+        		for (int i = 0; i < this.stocks.size(); i++) {
+        			if (this.stocks.get(i).getName().equals(stockName)) {
+        				stocks.add(i, targetStock);
+        			}
+        		}
+        	} else {
+        		sendErrorMessage(clientName, "requested stock does not exist");
+        	}
+    	} else {
+    		sendErrorMessage(clientName, "requested stock does not exist");
     	}
-        return -1;
+    	
+    	
+        return false;
+    }
+    
+    public JmsBrokerClient getClientByName(String clientName) {
+    	return clients.stream().filter(c -> c.getClientName().equals(clientName)).findFirst().orElse(null);
+    }
+    
+    public Stock getStockByName(String stockName) {
+    	return stocks.stream().filter(s -> s.getName().equals(stockName)).findFirst().orElse(null);
+
+    }
+    
+    public void sendErrorMessage(String clientName, String content) throws JMSException {
+    	TextMessage errorMsg = session.createTextMessage(content);
+		JmsBrokerClient cl = getClientByName(clientName);
+		if (cl != null) {
+			this.producer.send(cl.getIn(), errorMsg);
+		} else {
+			System.out.println("client does not exist");
+		}
     }
     
     public synchronized int sell(String stockName, int amount) throws JMSException {

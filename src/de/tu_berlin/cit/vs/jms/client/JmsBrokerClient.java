@@ -134,12 +134,14 @@ public class JmsBrokerClient {
     public void buy(String stockName, int amount) throws JMSException {
         //TODO
     	ObjectMessage buyMsg = session.createObjectMessage(new BuyMessage(stockName, amount));
+    	buyMsg.setStringProperty("name", this.clientName);
     	this.producer.send(buyMsg);
     }
     
     public void sell(String stockName, int amount) throws JMSException {
         //TODO
     	ObjectMessage sellMsg = session.createObjectMessage(new SellMessage(stockName, amount));
+    	sellMsg.setStringProperty("name", this.clientName);
     	this.producer.send(sellMsg);
     }
     
