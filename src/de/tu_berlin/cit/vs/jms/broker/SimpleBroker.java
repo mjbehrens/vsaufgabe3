@@ -55,6 +55,7 @@ public class SimpleBroker {
             		switch(brokMsg.getType()) {
 						case STOCK_BUY:
 							BuyMessage buyMsg = (BuyMessage)((ObjectMessage) msg).getObject();
+							System.out.println("name: " + msg.getStringProperty("name"));
 							buy(buyMsg.getStockName(), buyMsg.getAmount(), msg.getStringProperty("name"));
 					    	break;
 						case STOCK_SELL:
@@ -147,7 +148,11 @@ public class SimpleBroker {
     	System.exit(2);
     }
     
-    public synchronized boolean buy(String stockName, int amount, String clientName) throws JMSException {
+    public synchronized void buy(String stockName, int amount, String clientName) throws JMSException {
+    	if (getClientByName(clientName) == null) {
+    		System.out.println("client does not exist");
+    		return;
+    	}
     	Stock targetStock = getStockByName(stockName);
     	if (targetStock != null) {
     		if (targetStock.getAvailableCount() > amount) {
@@ -159,14 +164,11 @@ public class SimpleBroker {
         			}
         		}
         	} else {
-        		sendErrorMessage(clientName, "requested stock does not exist");
+        		sendErrorMessage(clientName, "number of requested stock");
         	}
     	} else {
     		sendErrorMessage(clientName, "requested stock does not exist");
     	}
-    	
-    	
-        return false;
     }
     
     public JmsBrokerClient getClientByName(String clientName) {
@@ -175,7 +177,6 @@ public class SimpleBroker {
     
     public Stock getStockByName(String stockName) {
     	return stocks.stream().filter(s -> s.getName().equals(stockName)).findFirst().orElse(null);
-
     }
     
     public void sendErrorMessage(String clientName, String content) throws JMSException {

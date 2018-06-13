@@ -14,6 +14,7 @@ import javax.jms.MessageProducer;
 import javax.jms.ObjectMessage;
 import javax.jms.Queue;
 import javax.jms.Session;
+import javax.jms.TextMessage;
 
 import de.tu_berlin.cit.vs.jms.common.BrokerMessage;
 import de.tu_berlin.cit.vs.jms.common.BuyMessage;
@@ -55,6 +56,8 @@ public class JmsBrokerClient {
 					e.printStackTrace();
 				}
 				
+			} else if (msg instanceof TextMessage) {
+				System.out.println(msg);
 			}
 			
 		}
