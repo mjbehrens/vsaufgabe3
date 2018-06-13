@@ -1,6 +1,7 @@
 package de.tu_berlin.cit.vs.jms.broker;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import javax.jms.JMSException;
 import javax.jms.Message;
@@ -33,7 +34,7 @@ public class SimpleBroker {
 	static int nextId = 0;
 	
 	List<Stock> stocks = new ArrayList<>();
-	List<JmsBrokerClient> clients;
+	List<JmsBrokerClient> clients = new ArrayList<>();
 	
 	
 	MessageProducer producer;
@@ -46,8 +47,11 @@ public class SimpleBroker {
         public void onMessage(Message msg) {
             if(msg instanceof ObjectMessage) {
                 //TODO
+            	
             	try {
+            		
             		BrokerMessage brokMsg = (BrokerMessage)((ObjectMessage) msg).getObject();
+            		System.out.println("Msg type: " + brokMsg.getType());
 					
             		switch(brokMsg.getType()) {
 						case STOCK_BUY:
@@ -64,6 +68,7 @@ public class SimpleBroker {
 							break;
 						case STOCK_LIST:
 							ObjectMessage listMsg = session.createObjectMessage(new ListMessage(stocks));
+							System.out.println("Broker: sending the stock list");
 							producer.send(listMsg);
 							break;
 						case SYSTEM_REGISTER:
@@ -79,10 +84,12 @@ public class SimpleBroker {
 								System.out.println("Client is not registered. Please register in prior.");
 								break;
 							}
+							Iterator<JmsBrokerClient> it = clients.iterator();
 							
-							for (JmsBrokerClient client: clients) {
-								if (client.getClientName().equals(unregMsg.getClientName())) {
-									clients.remove(client);
+							while (it.hasNext()) {
+								JmsBrokerClient cl = it.next();
+								if (cl.getClientName().equals(unregMsg.getClientName())) {
+									it.remove();
 								}
 							}
 							break;
