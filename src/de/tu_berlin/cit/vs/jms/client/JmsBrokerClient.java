@@ -3,6 +3,7 @@ package de.tu_berlin.cit.vs.jms.client;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -40,6 +41,13 @@ public class JmsBrokerClient {
 	MessageConsumer consumer;
 	MessageProducer producer;
 	Session session;
+	
+	// if client wants to sell stocks -> check whether he owns the stock
+	List<Stock> Stocks = new ArrayList<>(); 
+	
+	public List<Stock> getStocks() {
+		return Stocks;
+	}
 	
 	private final MessageListener listener = new MessageListener() {
 
@@ -239,8 +247,6 @@ public class JmsBrokerClient {
             
         } catch (JMSException | IOException ex) {
             Logger.getLogger(JmsBrokerClient.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        
-    }
-    
+        }   
+    }   
 }

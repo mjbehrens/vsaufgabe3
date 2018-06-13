@@ -60,7 +60,10 @@ public class SimpleBroker {
 					    	break;
 						case STOCK_SELL:
 							SellMessage sellMsg = (SellMessage)((ObjectMessage) msg).getObject();
-							sell(sellMsg.getStockName(), sellMsg.getAmount(),msg.getStringProperty("name"));
+							if (clientGotStocks(sellMsg.getStockName(),msg.getStringProperty("name"),sellMsg.getAmount()))
+							{
+								sell(sellMsg.getStockName(), sellMsg.getAmount(),msg.getStringProperty("name"));
+							}
 							break;
 						case STOCK_LIST:
 							ObjectMessage listMsg = session.createObjectMessage(new ListMessage(stocks));
@@ -104,6 +107,8 @@ public class SimpleBroker {
             	
             }
         }
+
+	
     };
     
     public SimpleBroker(List<Stock> stockList) throws JMSException {
@@ -141,7 +146,9 @@ public class SimpleBroker {
         this.stocks = stockList;
     }
     
-    public void stop() throws JMSException {
+
+
+	public void stop() throws JMSException {
         //TODO
     	System.out.println("request from broker server to stop the simple broker");
     	this.con.close();
@@ -153,7 +160,7 @@ public class SimpleBroker {
     		System.out.println("client does not exist");
     		return;
     	}
-    	Stock targetStock = getStockByName(stockName);
+    	Stock targetStock = getStockByName(stockName, stocks);
     	if (targetStock != null) {
     		if (targetStock.getAvailableCount() > amount) {
         		targetStock.setAvailableCount(targetStock.getAvailableCount() - amount);
@@ -175,7 +182,7 @@ public class SimpleBroker {
     	return clients.stream().filter(c -> c.getClientName().equals(clientName)).findFirst().orElse(null);
     }
     
-    public Stock getStockByName(String stockName) {
+    public Stock getStockByName(String stockName, List<Stock> stocks) {
     	return stocks.stream().filter(s -> s.getName().equals(stockName)).findFirst().orElse(null);
     }
     
@@ -188,14 +195,38 @@ public class SimpleBroker {
 			System.out.println("client does not exist");
 		}
     }
-    
+    protected void clientAddStocks(String stockName, String clientName, int amount) {
+		// TODO Auto-generated method stub
+    	JmsBrokerClient Client = getClientByName(clientName);
+    	Stock stock = getStockByName(stockName,Client.getStocks());
+    	if(stock == null)
+    	{
+    		
+    	}
+		
+	}
+	private boolean clientGotStocks(String stockName, String clientName, int amount ) {
+		JmsBrokerClient Client = getClientByName(clientName);
+		Stock stock = getStockByName(stockName,Client.getStocks());
+		if (stock==null || stock.getAvailableCount()< amount )
+		{
+			return false;
+		}
+		else
+		{
+			return true;
+		}
+	}
+	
+	
     public synchronized boolean sell(String stockName, int amount, String clientName) throws JMSException {
         //TODO
         for (int i = 0; i < this.stocks.size(); i++)
         {
             if (stocks.get(i).getName().equals(stockName)) 
             {
-                if(stocks.get(i).getAvailableCount()+amount>stocks.get(i).getStockCount())
+            	
+                if(stocks.get(i).getAvailableCount()+amount > stocks.get(i).getStockCount())
                 {
                     System.out.println("sell impossible, total amount of stocks exceeded the initial stock count");
                     sendErrorMessage(clientName, "sell impossible, total amount of stocks exceeded the initial stock count");
