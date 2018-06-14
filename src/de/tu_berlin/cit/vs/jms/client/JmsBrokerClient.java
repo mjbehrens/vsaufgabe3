@@ -42,20 +42,19 @@ public class JmsBrokerClient {
 	MessageProducer producer;
 	Session session;
 	
-	// if client wants to sell stocks -> check whether he owns the stock
-	List<Stock> Stocks = new ArrayList<>(); 
-	
-	public List<Stock> getStocks() {
-		return Stocks;
-	}
-	
 	private final MessageListener listener = new MessageListener() {
 
 		@Override
 		public void onMessage(Message msg) {
-			if (msg instanceof ObjectMessage) {
+			if (msg instanceof TextMessage) {
 				try {
-					System.out.println("Msg type: " + ((BrokerMessage) ((ObjectMessage) msg).getObject()).getType());
+					System.out.println(((TextMessage) msg).getText());
+				} catch (JMSException e) {
+					e.printStackTrace();
+				}
+			} else if (msg instanceof ObjectMessage) {
+				try {
+					System.out.println("Client: msg type = " + ((BrokerMessage) ((ObjectMessage) msg).getObject()).getType());
 					ListMessage listMsg = (ListMessage)((ObjectMessage) msg).getObject();
 					List<Stock> stocks = listMsg.getStocks();
 					stocks.forEach(System.out::println);
@@ -63,11 +62,7 @@ public class JmsBrokerClient {
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
-				
-			} else if (msg instanceof TextMessage) {
-				System.out.println(msg);
 			}
-			
 		}
 		
 	};
@@ -120,10 +115,6 @@ public class JmsBrokerClient {
 	public int getId() {
 		return id;
 	}
-
-	public void setId(int id) {
-		this.id = id;
-	}
 		
 	public void register() throws JMSException {
         ObjectMessage regMsg = this.session.createObjectMessage(new RegisterMessage(this.clientName));
@@ -139,6 +130,7 @@ public class JmsBrokerClient {
 	public void requestList() throws JMSException {
         //TODO
     	ObjectMessage reqListMsg = session.createObjectMessage(new RequestListMessage());
+    	reqListMsg.setStringProperty("name", this.clientName);
     	this.producer.send(reqListMsg);
     }
     
