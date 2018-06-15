@@ -18,7 +18,7 @@ public abstract class BrokerMessage implements Serializable {
     public enum Type {
         SYSTEM_REGISTER,
         SYSTEM_UNREGISTER,
-        SYSTEM_ERROR,
+        SYSTEM_QUIT,
         
         STOCK_LIST,
         STOCK_BUY,

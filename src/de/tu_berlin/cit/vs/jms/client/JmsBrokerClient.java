@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import javax.jms.Destination;
 import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
@@ -20,6 +22,7 @@ import javax.jms.TextMessage;
 import de.tu_berlin.cit.vs.jms.common.BrokerMessage;
 import de.tu_berlin.cit.vs.jms.common.BuyMessage;
 import de.tu_berlin.cit.vs.jms.common.ListMessage;
+import de.tu_berlin.cit.vs.jms.common.QuitMessage;
 import de.tu_berlin.cit.vs.jms.common.RegisterMessage;
 import de.tu_berlin.cit.vs.jms.common.RequestListMessage;
 import de.tu_berlin.cit.vs.jms.common.SellMessage;
@@ -35,12 +38,14 @@ public class JmsBrokerClient {
     
 	private Queue in;
 	private Queue out;
+	private Queue regQueue;
 	private String clientName;
 	private int id;
 
 	MessageConsumer consumer;
 	MessageProducer producer;
 	Session session;
+	SQSConnection connection;
 	
 	private final MessageListener listener = new MessageListener() {
 
@@ -82,19 +87,21 @@ public class JmsBrokerClient {
         		new ProviderConfiguration(), 
         		AmazonSQSClientBuilder.standard().withRegion("us-east-2")
         );
-        SQSConnection connection = conFactory.createConnection(
+        this.connection = conFactory.createConnection(
         		"AKIAIBTHVB24KIISRKRQ", 
         		"g3/ks/Y8SwjnztgAVDPy0PmXiXPUk/fvEeOwnCIS"
         );
         
         this.session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-        // queue for sending registration msg to the broker
-        Queue regQueue = session.createQueue("RegistrationQueue");
-        // queue for receiving results of the client commands 
-        Queue targetQueue = session.createQueue("newQueue");
-        this.producer = session.createProducer(regQueue);
-        this.consumer = session.createConsumer(targetQueue);
         
+        // queue for sending commands to the broker
+        this.in = session.createQueue("asda");
+        // queue for receiving results of the client commands 
+        this.out = session.createQueue("newQueue");
+        // queue for sending registration msg to the broker
+        this.regQueue = session.createQueue("RegistrationQueue");
+        
+        this.consumer = session.createConsumer(this.out);
         consumer.setMessageListener(listener);
         connection.start();
         
@@ -108,6 +115,14 @@ public class JmsBrokerClient {
 		return out;
 	}
 
+	public Queue getRegQueue() {
+		return regQueue;
+	}
+
+	public void setRegQueue(Queue regQueue) {
+		this.regQueue = regQueue;
+	}
+
 	public String getClientName() {
 		return clientName;
 	}
@@ -115,36 +130,49 @@ public class JmsBrokerClient {
 	public int getId() {
 		return id;
 	}
+	
+	public void setDestination(Queue queue) {
+		try {
+			this.producer = session.createProducer(queue);
+		} catch (JMSException e) {
+			e.printStackTrace();
+		}
+	}
 		
 	public void register() throws JMSException {
         ObjectMessage regMsg = this.session.createObjectMessage(new RegisterMessage(this.clientName));
+        setDestination(this.regQueue);
         this.producer.send(regMsg);
         System.out.println("Client: Register msg was sent to the broker");
 	}
 	
 	public void unregister() throws JMSException {
-		ObjectMessage unregMsg = session.createObjectMessage(new UnregisterMessage(this.clientName));
-    	this.producer.send(unregMsg);
+		ObjectMessage unregMsg = this.session.createObjectMessage(new UnregisterMessage(this.clientName));
+		setDestination(this.in);
+		this.producer.send(unregMsg);
 	}
 
 	public void requestList() throws JMSException {
         //TODO
-    	ObjectMessage reqListMsg = session.createObjectMessage(new RequestListMessage());
+    	ObjectMessage reqListMsg = this.session.createObjectMessage(new RequestListMessage());
     	reqListMsg.setStringProperty("name", this.clientName);
+    	setDestination(this.in);
     	this.producer.send(reqListMsg);
     }
     
     public void buy(String stockName, int amount) throws JMSException {
         //TODO
-    	ObjectMessage buyMsg = session.createObjectMessage(new BuyMessage(stockName, amount));
+    	ObjectMessage buyMsg = this.session.createObjectMessage(new BuyMessage(stockName, amount));
     	buyMsg.setStringProperty("name", this.clientName);
+    	setDestination(this.in);
     	this.producer.send(buyMsg);
     }
     
     public void sell(String stockName, int amount) throws JMSException {
         //TODO
-    	ObjectMessage sellMsg = session.createObjectMessage(new SellMessage(stockName, amount));
+    	ObjectMessage sellMsg = this.session.createObjectMessage(new SellMessage(stockName, amount));
     	sellMsg.setStringProperty("name", this.clientName);
+    	setDestination(this.in);
     	this.producer.send(sellMsg);
     }
     
@@ -158,7 +186,12 @@ public class JmsBrokerClient {
     
     public void quit() throws JMSException {
         //TODO
-    	System.out.println("Client wants to finish the session...");
+    	ObjectMessage quitMsg = this.session.createObjectMessage(
+    			new QuitMessage("Client wants to finish the session...")
+    	);
+    	setDestination(this.in);
+    	this.producer.send(quitMsg);
+    	this.connection.close();
     	System.exit(1);
     }
     
