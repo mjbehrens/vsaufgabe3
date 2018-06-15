@@ -3,12 +3,10 @@ package de.tu_berlin.cit.vs.jms.client;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.jms.Destination;
 import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
@@ -100,7 +98,6 @@ public class JmsBrokerClient {
         this.out = session.createQueue("newQueue");
         // queue for sending registration msg to the broker
         this.regQueue = session.createQueue("RegistrationQueue");
-        
         this.consumer = session.createConsumer(this.out);
         consumer.setMessageListener(listener);
         connection.start();
@@ -143,7 +140,6 @@ public class JmsBrokerClient {
         ObjectMessage regMsg = this.session.createObjectMessage(new RegisterMessage(this.clientName));
         setDestination(this.regQueue);
         this.producer.send(regMsg);
-        System.out.println("Client: Register msg was sent to the broker");
 	}
 	
 	public void unregister() throws JMSException {
