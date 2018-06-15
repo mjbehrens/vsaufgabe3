@@ -7,7 +7,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.*;
 
-import javax.jms.Destination;
 import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
@@ -29,7 +28,6 @@ import de.tu_berlin.cit.vs.jms.common.BrokerMessage;
 import de.tu_berlin.cit.vs.jms.common.BuyMessage;
 import de.tu_berlin.cit.vs.jms.common.ListMessage;
 import de.tu_berlin.cit.vs.jms.common.RegisterMessage;
-import de.tu_berlin.cit.vs.jms.common.RequestListMessage;
 import de.tu_berlin.cit.vs.jms.common.SellMessage;
 import de.tu_berlin.cit.vs.jms.common.Stock;
 import de.tu_berlin.cit.vs.jms.common.UnregisterMessage;
@@ -66,86 +64,83 @@ public class SimpleBroker {
         public void onMessage(Message msg) {
             if (msg instanceof ObjectMessage) {
                 //TODO
-                try {
 
-                    BrokerMessage brokMsg = (BrokerMessage) ((ObjectMessage) msg).getObject();
-                    System.out.println("Broker: msg type = " + brokMsg.getType());
-
-                    switch (brokMsg.getType()) {
-                        case STOCK_BUY:
-                            if (!isRegistered(msg.getStringProperty("name"))) {
-                                break;
-                            }
-                            BuyMessage buyMsg = (BuyMessage) ((ObjectMessage) msg).getObject();
-                            System.out.println("name: " + msg.getStringProperty("name"));
-                            buy(buyMsg.getStockName(), buyMsg.getAmount(), msg.getStringProperty("name"));
-                            break;
-                        case STOCK_SELL:
-                            if (!isRegistered(msg.getStringProperty("name"))) {
-                                break;
-                            }
-							/*SellMessage sellMsg = (SellMessage)((ObjectMessage) msg).getObject();
-							if (
-									clientGotStocks(
-											sellMsg.getStockName(),
-											msg.getStringProperty("name"),
-											sellMsg.getAmount())
+            	try {
+            		
+            		BrokerMessage brokMsg = (BrokerMessage)((ObjectMessage) msg).getObject();
+            		System.out.println("Broker: msg type = " + brokMsg.getType());
+					
+            		switch(brokMsg.getType()) {
+						case STOCK_BUY:
+							if (!isRegistered(msg.getStringProperty("name"))) {
+								break;
+							}
+							BuyMessage buyMsg = (BuyMessage)((ObjectMessage) msg).getObject();
+							buy(buyMsg.getStockName(), buyMsg.getAmount(), msg.getStringProperty("name"));
+					    	break;
+						case STOCK_SELL:
+							if (!isRegistered(msg.getStringProperty("name"))) {
+								break;
+							}
+							SellMessage sellMsg = (SellMessage)((ObjectMessage) msg).getObject();
+							sell(sellMsg.getStockName(), sellMsg.getAmount(), msg.getStringProperty("name"));
+							break;
+						case STOCK_LIST:
+							if (!isRegistered(msg.getStringProperty("name"))) {
+								break;
+							}
+							ObjectMessage listMsg = session.createObjectMessage(new ListMessage(stocks));
+							producer.send(listMsg);
+							break;
+						case SYSTEM_REGISTER:
+							RegisterMessage regMsg = (RegisterMessage)((ObjectMessage) msg).getObject();
+							Queue in = session.createQueue("asda");
+							Queue out = session.createQueue("newQueue");
+							initializeQueues(in, out);
+							
+							if (clients.stream()
+									.filter(c -> c.getClientName().equals(regMsg.getClientName()))
+									.count() != 0 
 							) {
-								sell(sellMsg.getStockName(), sellMsg.getAmount(),msg.getStringProperty("name"));
-							}*/
-                            break;
-                        case STOCK_LIST:
-                            if (!isRegistered(msg.getStringProperty("name"))) {
-                                break;
-                            }
-                            ObjectMessage listMsg = session.createObjectMessage(new ListMessage(stocks));
-                            producer.send(listMsg);
-                            break;
-                        case SYSTEM_REGISTER:
-                            RegisterMessage regMsg = (RegisterMessage) ((ObjectMessage) msg).getObject();
-                            if (isRegistered(regMsg.getClientName())) {
-                                sendMessage("Client is already registered");
-                                break;
-                            }
-
-                            Queue in = session.createQueue("asda");
-                            Queue out = session.createQueue("newQueue");
-                            initializeQueues(in, out);
-                            userStocksMap.put(
-                                    regMsg.getClientName(),
-                                    new ArrayList<Stock>()
-                            );
-                            clients.add(new JmsBrokerClient(nextId++, regMsg.getClientName(), in, out));
-                            sendMessage("client has registered successfully");
-                            break;
-                        case SYSTEM_UNREGISTER:
-                            UnregisterMessage unregMsg = (UnregisterMessage) ((ObjectMessage) msg).getObject();
-                            if (!isRegistered(unregMsg.getClientName())) {
-                                break;
-                            }
-                            Iterator<JmsBrokerClient> it = clients.iterator();
-                            while (it.hasNext()) {
-                                JmsBrokerClient cl = it.next();
-                                if (cl.getClientName().equals(unregMsg.getClientName())) {
-                                    it.remove();
-                                }
-                            }
-                            sendMessage("client has unregistered successfully");
-                            break;
-                        case SYSTEM_QUIT:
-                            stop();
-                            break;
-                        default:
-                            sendMessage("Not a supported command.\n"
-                                    + "Please try one of this commands: list, sell, buy, register, unregister");
-                            break;
-                    }
-
-                } catch (JMSException e) {
-                    System.out.println("error message: " + e.getMessage());
-                    e.printStackTrace();
-                }
-
+								sendMessage("Client is already registered");
+								break;
+							}
+							userStocksMap.put(
+									regMsg.getClientName(), 
+									new ArrayList<Stock>()
+							);
+							clients.add(new JmsBrokerClient(nextId++, regMsg.getClientName(), in, out));
+							sendMessage("client has registered successfully");
+							break;
+						case SYSTEM_UNREGISTER: 
+							UnregisterMessage unregMsg = (UnregisterMessage)((ObjectMessage) msg).getObject();
+							if (!isRegistered(unregMsg.getClientName())) {
+								break;
+							}
+							Iterator<JmsBrokerClient> it = clients.iterator();
+							while (it.hasNext()) {
+								JmsBrokerClient cl = it.next();
+								if (cl.getClientName().equals(unregMsg.getClientName())) {
+									it.remove();
+								}
+							}
+							userStocksMap.remove(unregMsg.getClientName());
+							sendMessage("client has unregistered successfully");
+							break;
+						case SYSTEM_QUIT:
+							stop();
+							break;
+						default:
+							sendMessage("Not a supported command.\n"
+									+ "Please try one of this commands: list, sell, buy, register, unregister");
+							break;
+					}
+					
+				} catch (JMSException e) {
+					System.out.println("error message: " + e.getMessage());
+					e.printStackTrace();
+				}
+            	
             }
         }
 
@@ -214,6 +209,7 @@ public class SimpleBroker {
     }
 
     public synchronized void buy(String stockName, int amount, String clientName) throws JMSException {
+<<<<<<< HEAD
         // client exists (is registered)
         if (getClientByName(clientName) == null) {
             sendMessage("cannot invoke buy or sell. Please register in prior!");
@@ -257,6 +253,45 @@ public class SimpleBroker {
         } else {
             sendMessage("requested stock does not exist");
         }
+=======
+    	Stock targetStock = getStockByName(stockName, stocks);
+    	// stock exists (valid name)
+    	if (targetStock != null) {
+    		// requested stock number is available
+    		if (targetStock.getAvailableCount() > amount) {
+        		targetStock.setAvailableCount(targetStock.getAvailableCount() - amount);
+        		// replace old stock obj with updated stock obj
+        		for (int i = 0; i < this.stocks.size(); i++) {
+        			if (this.stocks.get(i).getName().equals(stockName)) {
+        				stocks.set(i, targetStock);
+        			}
+        		}
+        		// user owns the stock and is only updated
+        		List<Stock> clientStocks = userStocksMap.get(clientName);
+        		int i = 0;
+        		if (getStockByName(stockName, userStocksMap.get(clientName)) != null) {
+        			for (; i < clientStocks.size(); i++) {
+        				if (clientStocks.get(i).getName().equals(stockName)) {
+        					clientStocks.set(i, targetStock);
+                			userStocksMap.put(clientName, clientStocks);
+        				}
+        			}
+        		} else {
+        		// user does not own the stock and has to be added to the map	
+        			userStocksMap.put(
+        					clientName, 
+        					Stream.concat(userStocksMap.get(clientName).stream(), Stream.of(targetStock)).collect(Collectors.toList())
+        			);
+        		}
+        		sendMessage(clientName + " has bought " + amount + " stocks of stock type " + stockName);
+        		
+        	} else {
+        		sendMessage("number of requested stock is exceeded");
+        	}
+    	} else {
+    		sendMessage("requested stock does not exist");
+    	}
+>>>>>>> 3a957e67656f05a9929b046291ccc234b0dd65a2
     }
 
     public JmsBrokerClient getClientByName(String clientName) {
@@ -271,6 +306,7 @@ public class SimpleBroker {
         TextMessage msg = session.createTextMessage(content);
         this.producer.send(msg);
     }
+<<<<<<< HEAD
 
 
    /*protected void clientAddStocks(String stockName, String clientName, int amount) {
@@ -303,6 +339,74 @@ public class SimpleBroker {
             if (stocks.get(i).getName().equals(stockName)) {
 
                 if (stocks.get(i).getAvailableCount() + amount > stocks.get(i).getStockCount()) {
+=======
+	
+    public synchronized void sell(String stockName, int amount, String clientName) throws JMSException {
+        //TODO
+    	Stock targetStock = getStockByName(stockName, stocks);
+    	// stock exists (valid name)
+    	if (targetStock != null) {
+    		// client owns the stock 
+    		if (getStockByName(stockName, this.userStocksMap.get(clientName)) != null) {
+    			// client has enough of this stock type to sell
+    			if (getStockByName(
+    					stockName, this.userStocksMap.get(clientName)).getAvailableCount() >= amount
+    			) {
+    				// the maximum number of stocks is not exceeded
+    				if (targetStock.getAvailableCount() + amount <= targetStock.getStockCount()) {
+    					
+    					targetStock.setAvailableCount(targetStock.getAvailableCount() + amount);
+                		// replace old stock obj with updated stock obj
+                		for (int i = 0; i < this.stocks.size(); i++) {
+                			if (this.stocks.get(i).getName().equals(stockName)) {
+                				stocks.set(i, targetStock);
+                			}
+                		}
+                		// user owns the stock and is updated
+                		List<Stock> clientStocks = userStocksMap.get(clientName);
+                		for (int i = 0; i < clientStocks.size(); i++) {
+                			if (clientStocks.get(i).getName().equals(stockName)) {
+                				Stock updatedStock = clientStocks.get(i);
+                				updatedStock.setAvailableCount(updatedStock.getAvailableCount() - amount);
+                				clientStocks.set(i, updatedStock);
+                        		userStocksMap.put(clientName, clientStocks);
+                			}
+                		}
+                		sendMessage(clientName + " has sold " + amount + " stocks of stock type " + stockName);
+    				} else {
+    					sendMessage("maximum number of stocks is exceeded");
+    				}
+    			} else {
+    				sendMessage("client does not own enough stocks of this type");
+    			}
+        	} else {
+        		sendMessage("client does not own this stock. Please first buy enough stocks of this type.");
+        	}
+    	} else {
+    		sendMessage("requested stock does not exist");
+    	}
+    }
+    
+    public synchronized List<Stock> getStockList() {
+        List<Stock> stockList = new ArrayList<>();
+
+        /* TODO: populate stockList */
+        stockList.addAll(this.stocks);
+
+        return stockList;
+    }
+}
+    
+    
+/*
+ for (int i = 0; i < this.stocks.size(); i++)
+        {
+            if (stocks.get(i).getName().equals(stockName)) 
+            {
+            	
+                if(stocks.get(i).getAvailableCount()+amount > stocks.get(i).getStockCount())
+                {
+>>>>>>> 3a957e67656f05a9929b046291ccc234b0dd65a2
                     System.out.println("sell impossible, total amount of stocks exceeded the initial stock count");
                     sendMessage("sell impossible, total amount of stocks exceeded the initial stock count");
                     return false;
@@ -316,6 +420,7 @@ public class SimpleBroker {
         // if it doesn't find the stock in the stocks list
         sendMessage("requested stock does not exist");
         return false;
+<<<<<<< HEAD
     }
 
     public synchronized List<Stock> getStockList() {
@@ -327,3 +432,6 @@ public class SimpleBroker {
         return stockList;
     }
 }
+=======
+*/
+>>>>>>> 3a957e67656f05a9929b046291ccc234b0dd65a2
