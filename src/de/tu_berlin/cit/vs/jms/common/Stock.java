@@ -1,5 +1,7 @@
 package de.tu_berlin.cit.vs.jms.common;
 
+import com.amazonaws.services.sns.model.CreateTopicResult;
+
 import java.io.Serializable;
 
 
@@ -8,7 +10,8 @@ public class Stock implements Serializable {
     private int stockCount;
     private int availableCount;
     private double price;
-    
+    private CreateTopicResult arn;
+
     public Stock(String name, int stockCount, double startingPrice) {
         this.stockCount = stockCount;
         this.availableCount = stockCount;
@@ -32,6 +35,10 @@ public class Stock implements Serializable {
         this.stockCount = stockCount;
     }
 
+    public void setARN(CreateTopicResult arn) { this.arn = arn; }
+
+    public CreateTopicResult getARN() { return arn; }
+
     public int getAvailableCount() {
         return availableCount;
     }
@@ -47,7 +54,7 @@ public class Stock implements Serializable {
     public void setPrice(double price) {
         this.price = price;
     }
-    
+
     @Override
     public String toString() {
         return "" + getName() +

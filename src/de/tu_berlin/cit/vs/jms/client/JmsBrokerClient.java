@@ -19,6 +19,8 @@ import javax.jms.Queue;
 import javax.jms.Session;
 import javax.jms.TextMessage;
 
+import com.amazonaws.services.sns.model.SubscribeRequest;
+import de.tu_berlin.cit.vs.jms.aws.AWSConnection;
 import de.tu_berlin.cit.vs.jms.common.BrokerMessage;
 import de.tu_berlin.cit.vs.jms.common.BuyMessage;
 import de.tu_berlin.cit.vs.jms.common.ListMessage;
@@ -35,7 +37,7 @@ import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
 
 
 public class JmsBrokerClient {
-    
+
 	private Queue in;
 	private Queue out;
 	private Queue regQueue;
@@ -46,6 +48,7 @@ public class JmsBrokerClient {
 	MessageProducer producer;
 	Session session;
 	SQSConnection connection;
+	String email = "uni@alessandro-schneider.de";
 	
 	private final MessageListener listener = new MessageListener() {
 
@@ -177,7 +180,18 @@ public class JmsBrokerClient {
     }
     
     public void watch(String stockName) throws JMSException {
-        //TODO
+
+
+		AWSConnection awsConnection = new AWSConnection();
+
+
+		//subscribe to an SNS topic
+		SubscribeRequest subRequest = new SubscribeRequest("arn:aws:sns:us-east-2:154100690340:ALDI", "email", this.email);
+		awsConnection.snsClient.subscribe(subRequest);
+
+		System.out.println("SubscribeRequest - " + awsConnection.snsClient.getCachedResponseMetadata(subRequest));
+		System.out.println("Check your email and confirm subscription.");
+
     }
     
     public void unwatch(String stockName) throws JMSException {
