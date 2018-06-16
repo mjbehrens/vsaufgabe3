@@ -64,7 +64,6 @@ public class SimpleBroker {
         public void onMessage(Message msg) {
             if (msg instanceof ObjectMessage) {
                 //TODO
-
             	try {
             		
             		BrokerMessage brokMsg = (BrokerMessage)((ObjectMessage) msg).getObject();
@@ -96,7 +95,6 @@ public class SimpleBroker {
 							RegisterMessage regMsg = (RegisterMessage)((ObjectMessage) msg).getObject();
 							Queue in = session.createQueue("asda");
 							Queue out = session.createQueue("newQueue");
-							initializeQueues(in, out);
 							
 							if (clients.stream()
 									.filter(c -> c.getClientName().equals(regMsg.getClientName()))
@@ -151,10 +149,7 @@ public class SimpleBroker {
         buildTopics(stockList);
         this.topicHandler.publishTopic(stockList.get(0));
 
-
-
         /* TODO: initialize connection, sessions, etc. */
-        System.out.println("SimpleBroker");
         SQSConnectionFactory conFactory = new SQSConnectionFactory(
                 new ProviderConfiguration(),
                 AmazonSQSClientBuilder.standard().withRegion("us-east-2")
@@ -172,25 +167,26 @@ public class SimpleBroker {
             client.createQueue("RegistrationQueue");
         }
 
-        this.session = con.createSession(false, Session.AUTO_ACKNOWLEDGE);
+        this.session = this.con.createSession(false, Session.AUTO_ACKNOWLEDGE);
         // queue for polling registration requests
-        this.regQueue = session.createQueue("RegistrationQueue");
-        this.regConsumer = session.createConsumer(regQueue);
+        this.regQueue = this.session.createQueue("RegistrationQueue");
+        this.regConsumer = this.session.createConsumer(this.regQueue);
         this.regConsumer.setMessageListener(this.listener);
+        
+        Queue in = this.session.createQueue("asda");
+        this.consumer = this.session.createConsumer(in);
+        this.consumer.setMessageListener(this.listener);
+        
+        Queue out = this.session.createQueue("newQueue");
+        this.producer = this.session.createProducer(out);
         this.con.start();
+        
 //        for(Stock stock : stockList) {
 //            /* TODO: prepare stocks as topics */
 //        	Topic topic = session.createTopic(stock.getName());
 //        }
 
         this.stocks = stockList;
-    }
-
-    public void initializeQueues(Queue in, Queue out) throws JMSException {
-        this.producer = this.session.createProducer(out);
-        this.consumer = this.session.createConsumer(in);
-        this.consumer.setMessageListener(listener);
-
     }
 
     public boolean isRegistered(String clientName) throws JMSException {
@@ -209,51 +205,6 @@ public class SimpleBroker {
     }
 
     public synchronized void buy(String stockName, int amount, String clientName) throws JMSException {
-<<<<<<< HEAD
-        // client exists (is registered)
-        if (getClientByName(clientName) == null) {
-            sendMessage("cannot invoke buy or sell. Please register in prior!");
-            return;
-        }
-        Stock targetStock = getStockByName(stockName, stocks);
-        // stock exists (valid name)
-        if (targetStock != null) {
-            // requested stock number is available
-            if (targetStock.getAvailableCount() > amount) {
-                targetStock.setAvailableCount(targetStock.getAvailableCount() - amount);
-                // replace old stock obj with updated stock obj
-                for (int i = 0; i < this.stocks.size(); i++) {
-                    if (this.stocks.get(i).getName().equals(stockName)) {
-                        stocks.set(i, targetStock);
-                    }
-                }
-                // user owns the stock and is only updated
-                List<Stock> clientStocks = userStocksMap.get(clientName);
-                int i = 0;
-                if (getStockByName(stockName, userStocksMap.get(clientName)) != null) {
-                    for (; i < clientStocks.size(); i++) {
-                        if (clientStocks.get(i).getName().equals(stockName)) {
-
-                        }
-                    }
-                    clientStocks.set(i, targetStock);
-                    userStocksMap.put(clientName, clientStocks);
-
-                } else {
-                    // user does not own the stock and has to be added to the map
-                    userStocksMap.put(
-                            clientName,
-                            Stream.concat(userStocksMap.get(clientName).stream(), Stream.of(targetStock)).collect(Collectors.toList())
-                    );
-                }
-
-            } else {
-                sendMessage("number of requested stock");
-            }
-        } else {
-            sendMessage("requested stock does not exist");
-        }
-=======
     	Stock targetStock = getStockByName(stockName, stocks);
     	// stock exists (valid name)
     	if (targetStock != null) {
@@ -268,11 +219,12 @@ public class SimpleBroker {
         		}
         		// user owns the stock and is only updated
         		List<Stock> clientStocks = userStocksMap.get(clientName);
-        		int i = 0;
         		if (getStockByName(stockName, userStocksMap.get(clientName)) != null) {
-        			for (; i < clientStocks.size(); i++) {
+        			for (int i = 0; i < clientStocks.size(); i++) {
         				if (clientStocks.get(i).getName().equals(stockName)) {
-        					clientStocks.set(i, targetStock);
+        					Stock updatedStock = clientStocks.get(i);
+        					updatedStock.setAvailableCount(updatedStock.getAvailableCount() + amount);
+        					clientStocks.set(i, updatedStock);
                 			userStocksMap.put(clientName, clientStocks);
         				}
         			}
@@ -280,7 +232,7 @@ public class SimpleBroker {
         		// user does not own the stock and has to be added to the map	
         			userStocksMap.put(
         					clientName, 
-        					Stream.concat(userStocksMap.get(clientName).stream(), Stream.of(targetStock)).collect(Collectors.toList())
+        					Stream.concat(userStocksMap.get(clientName).stream(), Stream.of(targetStock)).collect(Collectors.toCollection(ArrayList::new))
         			);
         		}
         		sendMessage(clientName + " has bought " + amount + " stocks of stock type " + stockName);
@@ -291,11 +243,10 @@ public class SimpleBroker {
     	} else {
     		sendMessage("requested stock does not exist");
     	}
->>>>>>> 3a957e67656f05a9929b046291ccc234b0dd65a2
     }
 
     public JmsBrokerClient getClientByName(String clientName) {
-        return clients.stream().filter(c -> c.getClientName().equals(clientName)).findFirst().orElse(null);
+        return this.clients.stream().filter(c -> c.getClientName().equals(clientName)).findFirst().orElse(null);
     }
 
     public Stock getStockByName(String stockName, List<Stock> stocks) {
@@ -303,43 +254,9 @@ public class SimpleBroker {
     }
 
     public void sendMessage(String content) throws JMSException {
-        TextMessage msg = session.createTextMessage(content);
+    	TextMessage msg = session.createTextMessage(content);
         this.producer.send(msg);
     }
-<<<<<<< HEAD
-
-
-   /*protected void clientAddStocks(String stockName, String clientName, int amount) {
-		// TODO Auto-generated method stub
-    	JmsBrokerClient Client = getClientByName(clientName);
-    	Stock stock = getStockByName(stockName,Client.getStocks());
-    	if(stock == null)
-    	{
-
-    	}
-
-	}
-	private boolean clientGotStocks(String stockName, String clientName, int amount ) {
-		JmsBrokerClient Client = getClientByName(clientName);
-		Stock stock = getStockByName(stockName,Client.getStocks());
-		if (stock==null || stock.getAvailableCount()< amount )
-		{
-			return false;
-		}
-		else
-		{
-			return true;
-		}
-	}*/
-
-
-    public synchronized boolean sell(String stockName, int amount, String clientName) throws JMSException {
-        //TODO
-        for (int i = 0; i < this.stocks.size(); i++) {
-            if (stocks.get(i).getName().equals(stockName)) {
-
-                if (stocks.get(i).getAvailableCount() + amount > stocks.get(i).getStockCount()) {
-=======
 	
     public synchronized void sell(String stockName, int amount, String clientName) throws JMSException {
         //TODO
@@ -380,7 +297,7 @@ public class SimpleBroker {
     				sendMessage("client does not own enough stocks of this type");
     			}
         	} else {
-        		sendMessage("client does not own this stock. Please first buy enough stocks of this type.");
+        		sendMessage("client does not own this stock. Please first buy stocks of this type to sell them.");
         	}
     	} else {
     		sendMessage("requested stock does not exist");
@@ -396,42 +313,3 @@ public class SimpleBroker {
         return stockList;
     }
 }
-    
-    
-/*
- for (int i = 0; i < this.stocks.size(); i++)
-        {
-            if (stocks.get(i).getName().equals(stockName)) 
-            {
-            	
-                if(stocks.get(i).getAvailableCount()+amount > stocks.get(i).getStockCount())
-                {
->>>>>>> 3a957e67656f05a9929b046291ccc234b0dd65a2
-                    System.out.println("sell impossible, total amount of stocks exceeded the initial stock count");
-                    sendMessage("sell impossible, total amount of stocks exceeded the initial stock count");
-                    return false;
-                } else {
-                    stocks.get(i).setAvailableCount(stocks.get(i).getAvailableCount() + amount);
-                    return true;
-
-                }
-            }
-        }
-        // if it doesn't find the stock in the stocks list
-        sendMessage("requested stock does not exist");
-        return false;
-<<<<<<< HEAD
-    }
-
-    public synchronized List<Stock> getStockList() {
-        List<Stock> stockList = new ArrayList<>();
-
-        /* TODO: populate stockList */
-        stockList.addAll(this.stocks);
-
-        return stockList;
-    }
-}
-=======
-*/
->>>>>>> 3a957e67656f05a9929b046291ccc234b0dd65a2
