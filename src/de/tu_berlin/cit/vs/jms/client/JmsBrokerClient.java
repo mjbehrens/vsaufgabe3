@@ -6,6 +6,7 @@ import java.io.InputStreamReader;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import javax.jms.JMSException;
 import javax.jms.Message;
@@ -18,6 +19,8 @@ import javax.jms.Session;
 import javax.jms.TextMessage;
 
 import com.amazonaws.services.sns.model.SubscribeRequest;
+import com.amazonaws.services.sns.model.UnsubscribeRequest;
+import com.amazonaws.services.sns.model.transform.UnsubscribeResultStaxUnmarshaller;
 import de.tu_berlin.cit.vs.jms.aws.AWSConnection;
 import de.tu_berlin.cit.vs.jms.common.BrokerMessage;
 import de.tu_berlin.cit.vs.jms.common.BuyMessage;
@@ -42,6 +45,9 @@ public class JmsBrokerClient {
 	private String clientName;
 	private int id;
 
+	public static List<Stock> clientStocks;
+	List<Stock> myStocks;
+
 	MessageConsumer consumer;
 	MessageProducer producer;
 	Session session;
@@ -52,6 +58,7 @@ public class JmsBrokerClient {
 
 		@Override
 		public void onMessage(Message msg) {
+
 			if (msg instanceof TextMessage) {
 				try {
 					System.out.println(((TextMessage) msg).getText());
@@ -63,8 +70,11 @@ public class JmsBrokerClient {
 					System.out.println("Client: msg type = " + ((BrokerMessage) ((ObjectMessage) msg).getObject()).getType());
 					ListMessage listMsg = (ListMessage)((ObjectMessage) msg).getObject();
 					List<Stock> stocks = listMsg.getStocks();
+
 					stocks.forEach(System.out::println);
-					
+					JmsBrokerClient.clientStocks = stocks;
+
+
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -140,7 +150,9 @@ public class JmsBrokerClient {
 	}
 		
 	public void register() throws JMSException {
-        ObjectMessage regMsg = this.session.createObjectMessage(new RegisterMessage(this.clientName));
+		this.requestList();
+
+		ObjectMessage regMsg = this.session.createObjectMessage(new RegisterMessage(this.clientName));
         setDestination(this.regQueue);
         this.producer.send(regMsg);
 	}
@@ -177,21 +189,28 @@ public class JmsBrokerClient {
     
     public void watch(String stockName) throws JMSException {
 
+		Stock stock = JmsBrokerClient.clientStocks.stream().filter(e -> e.getName().equals(stockName)).findFirst().get();
 
 		AWSConnection awsConnection = new AWSConnection();
 
-
 		//subscribe to an SNS topic
-		SubscribeRequest subRequest = new SubscribeRequest("arn:aws:sns:us-east-2:154100690340:ALDI", "email", this.email);
+		SubscribeRequest subRequest = new SubscribeRequest(stock.getARN().getTopicArn(), "email", this.email);
 		awsConnection.snsClient.subscribe(subRequest);
 
-		System.out.println("SubscribeRequest - " + awsConnection.snsClient.getCachedResponseMetadata(subRequest));
+		System.out.println("SubscribeRequest to: - "  + stock.getARN().getTopicArn() + awsConnection.snsClient.getCachedResponseMetadata(subRequest));
 		System.out.println("Check your email and confirm subscription.");
 
     }
     
     public void unwatch(String stockName) throws JMSException {
-        //TODO
+		Stock stock = JmsBrokerClient.clientStocks.stream().filter(e -> e.getName().equals(stockName)).findFirst().get();
+
+		AWSConnection awsConnection = new AWSConnection();
+		//UnsubscribeRequest unsubscribeRequest = new UnsubscribeRequest(stock.getARN().getTopicArn());
+		//awsConnection.snsClient.unsubscribe(unsubscribeRequest);
+		//awsConnection.snsClient.unsubscribe(stock.getARN().getTopicArn());
+
+		System.out.println("Successfully unsubscribed from" +  stock.getARN().getTopicArn() );
     }
     
     public void quit() throws JMSException {
