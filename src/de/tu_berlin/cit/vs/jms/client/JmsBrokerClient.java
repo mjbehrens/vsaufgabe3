@@ -103,18 +103,20 @@ public class JmsBrokerClient {
         		"g3/ks/Y8SwjnztgAVDPy0PmXiXPUk/fvEeOwnCIS"
         );
         
-        this.session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+        this.session = this.connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
         
         // queue for sending commands to the broker
-        this.in = session.createQueue("asda");
+        this.in = this.session.createQueue("asda");
         // queue for receiving results of the client commands 
-        this.out = session.createQueue("newQueue");
+        this.out = this.session.createQueue("newQueue");
         // queue for sending registration msg to the broker
-        this.regQueue = session.createQueue("RegistrationQueue");
-        this.consumer = session.createConsumer(this.out);
-        consumer.setMessageListener(listener);
-        connection.start();
+
+        this.regQueue = this.session.createQueue("RegistrationQueue");
         
+        this.consumer = this.session.createConsumer(this.out);
+        this.consumer.setMessageListener(this.listener);
+        this.connection.start();
+
     }
 	
 	public Queue getIn() {
