@@ -38,12 +38,13 @@ public class SimpleBroker {
     static int nextId = 0;
 
     List<Stock> stocks = new ArrayList<>();
+    static List<Stock> mystocks = new ArrayList<>();
     List<JmsBrokerClient> clients = new ArrayList<>();
     // if client wants to sell stocks -> check whether he owns the stock
     Map<String, List<Stock>> userStocksMap = new HashMap<>();
     Queue regQueue;
 
-    AWSTopicHandler topicHandler = new AWSTopicHandler();
+    static AWSTopicHandler topicHandler = new AWSTopicHandler();
 
 
     MessageProducer producer;
@@ -54,8 +55,10 @@ public class SimpleBroker {
 
 
     public void buildTopics(List<Stock> stocks) {
-        stocks.stream().forEach(e -> e.setARN(this.topicHandler.buildTopic(e.getName())));
+        stocks.stream().forEach(e -> e.setARN(SimpleBroker.topicHandler.buildTopic(e.getName())));
         stocks.stream().forEach(e -> System.out.println(e.getARN()));
+
+        SimpleBroker.mystocks = stocks.stream().collect(Collectors.toList());
 
     }
 
@@ -69,22 +72,32 @@ public class SimpleBroker {
             		
             		BrokerMessage brokMsg = (BrokerMessage)((ObjectMessage) msg).getObject();
             		System.out.println("Broker: msg type = " + brokMsg.getType());
-					
+
             		switch(brokMsg.getType()) {
-						case STOCK_BUY:
+
+                        case STOCK_BUY:
 							if (!isRegistered(msg.getStringProperty("name"))) {
 								break;
 							}
 							BuyMessage buyMsg = (BuyMessage)((ObjectMessage) msg).getObject();
 							buy(buyMsg.getStockName(), buyMsg.getAmount(), msg.getStringProperty("name"));
-					    	break;
+
+							Stock buystock = SimpleBroker.mystocks.stream().filter( e -> e.getName().equals(buyMsg.getStockName())).findFirst().get();
+							SimpleBroker.topicHandler.publishTopic(buystock);
+                            System.out.println("published Information to AWS from:" + buystock.getName());
+							break;
 						case STOCK_SELL:
 							if (!isRegistered(msg.getStringProperty("name"))) {
 								break;
 							}
 							SellMessage sellMsg = (SellMessage)((ObjectMessage) msg).getObject();
 							sell(sellMsg.getStockName(), sellMsg.getAmount(), msg.getStringProperty("name"));
-							break;
+
+                            Stock sellstock = SimpleBroker.mystocks.stream().filter( e -> e.getName().equals(sellMsg.getStockName())).findFirst().get();
+							SimpleBroker.topicHandler.publishTopic(sellstock);
+                            System.out.println("published Information to AWS from:" + sellstock.getName());
+
+                            break;
 						case STOCK_LIST:
 							if (!isRegistered(msg.getStringProperty("name"))) {
 								break;
@@ -149,7 +162,7 @@ public class SimpleBroker {
     public SimpleBroker(List<Stock> stockList) throws JMSException {
 
         buildTopics(stockList);
-        this.topicHandler.publishTopic(stockList.get(0));
+		SimpleBroker.topicHandler.publishTopic(stockList.get(0));
 
         /* TODO: initialize connection, sessions, etc. */
         SQSConnectionFactory conFactory = new SQSConnectionFactory(

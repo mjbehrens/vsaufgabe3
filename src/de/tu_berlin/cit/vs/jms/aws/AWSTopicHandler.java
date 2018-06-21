@@ -8,6 +8,7 @@ import com.amazonaws.services.sns.model.PublishResult;
 import de.tu_berlin.cit.vs.jms.common.Stock;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 public class AWSTopicHandler {
