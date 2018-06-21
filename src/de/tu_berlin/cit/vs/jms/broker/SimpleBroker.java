@@ -89,6 +89,7 @@ public class SimpleBroker {
 							if (!isRegistered(msg.getStringProperty("name"))) {
 								break;
 							}
+							System.err.println(stocks);
 							ObjectMessage listMsg = session.createObjectMessage(new ListMessage(stocks));
 							producer.send(listMsg);
 							break;
@@ -232,9 +233,10 @@ public class SimpleBroker {
         			}
         		} else {
         		// user does not own the stock and has to be added to the map	
+        			Stock newStock = new Stock(targetStock.getName(), amount, targetStock.getPrice());
         			userStocksMap.put(
         					clientName, 
-        					Stream.concat(userStocksMap.get(clientName).stream(), Stream.of(targetStock)).collect(Collectors.toCollection(ArrayList::new))
+        					Stream.concat(userStocksMap.get(clientName).stream(), Stream.of(newStock)).collect(Collectors.toCollection(ArrayList::new))
         			);
         		}
         		sendMessage(clientName + " has bought " + amount + " stocks of stock type " + stockName);
