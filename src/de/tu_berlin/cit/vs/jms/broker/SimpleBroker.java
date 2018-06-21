@@ -195,11 +195,6 @@ public class SimpleBroker {
         Queue out = this.session.createQueue("newQueue");
         this.producer = this.session.createProducer(out);
         this.con.start();
-        
-//        for(Stock stock : stockList) {
-//            /* TODO: prepare stocks as topics */
-//        	Topic topic = session.createTopic(stock.getName());
-//        }
 
         this.stocks = stockList;
     }

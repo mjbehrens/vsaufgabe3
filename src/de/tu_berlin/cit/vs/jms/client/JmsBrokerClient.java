@@ -152,7 +152,7 @@ public class JmsBrokerClient {
 	}
 		
 	public void register() throws JMSException {
-		//this.requestList();
+		this.requestList();
 
 		ObjectMessage regMsg = this.session.createObjectMessage(new RegisterMessage(this.clientName));
         setDestination(this.regQueue);
